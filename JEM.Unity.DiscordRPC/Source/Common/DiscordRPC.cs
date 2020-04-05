@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using AOT;
+using UnityEngine;
 
 namespace JEM.Unity.DiscordRPC.Common
 {
@@ -152,6 +153,20 @@ namespace JEM.Unity.DiscordRPC.Common
             public string joinSecret; /* max 128 bytes */
             public string spectateSecret; /* max 128 bytes */
             public bool instance;
+
+            /// <inheritdoc />
+            public override string ToString()
+            {
+                var str = string.Empty;
+                str += "State=" + state + ", ";
+                str += "Details=" + details + ", ";
+                str += "StartTimestamp=" + startTimestamp + ", ";
+                str += "LargeImageKey=" + largeImageKey + ", ";
+                str += "LargeImageText=" + largeImageText + ", ";
+                str += "SmallImageKey=" + smallImageKey + ", ";
+                str += "SmallImageText=" + smallImageText + ", ";
+                return str;
+            }
 
             /// <summary>
             ///     Get the <see cref="RichPresenceStruct"/> reprensentation of this instance

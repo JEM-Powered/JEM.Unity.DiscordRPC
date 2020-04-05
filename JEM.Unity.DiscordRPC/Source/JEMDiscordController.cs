@@ -6,188 +6,206 @@
 
 using System;
 using JEM.Unity.DiscordRPC.Common;
+using JetBrains.Annotations;
 using UnityEditor;
-using UnityEditor.Compilation;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 namespace JEM.Unity.DiscordRPC
 {
-    [InitializeOnLoad]
-    public class JEMDiscordController
+    public enum JEMDiscordImageKey
     {
-        static JEMDiscordController()
+        UnityDefault
+    }
+    
+    public static class JEMDiscordController
+    {
+        private const string ApplicationId = "696168436556103771";
+        private const string OptionalSteamId = "";
+        
+        /// <summary>
+        ///     Initialize discord controller.
+        /// </summary>
+        public static void Init()
         {
-            EditorSceneManager.sceneOpened += (scene, mode) =>
+            if (Application.isBatchMode)
             {
-                // // Clear cache.
-                // if (!Application.isPlaying)
-                // {
-                //     SceneObjectReferenceDatabase.ExternalObjectReferences = null;
-                //     SceneObjectReferenceDatabase.CachedObjects.Clear();
-                // }
-                //
-                // IsOpeningScene = false;
-            };
+                Debug.Log($"Discord RPC can't be initialized in BathMode.");
+                return; // ignore discord in batchmode!
+            }
+
+            if (IsInitialized) return;
+            IsInitialized = true;
             
-            EditorApplication.playModeStateChanged += change =>
-            {
-                switch (change)
-                {
-                    case PlayModeStateChange.EnteredEditMode:
-                        // IsEditor = true;
-                        break;
-                    case PlayModeStateChange.ExitingEditMode:
-                    case PlayModeStateChange.EnteredPlayMode:
-                    case PlayModeStateChange.ExitingPlayMode:
-                        // IsEditor = false;
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(change), change, null);
-                }
-            };
+            //Debug.Log("Discord: init");
+            
+            _handlers = new DiscordRpc.EventHandlers();
+            // _handlers.readyCallback += ReadyCallback;
+            // _handlers.disconnectedCallback += DisconnectedCallback;
+            // _handlers.errorCallback += ErrorCallback;
 
-            Debug.Log("Hello, World");
-            CompilationPipeline.assemblyCompilationStarted += OnAssemblyCompilationStarted;
-        }
+            DiscordRpc.Initialize(ApplicationId, ref _handlers, true, OptionalSteamId);
 
-        private static bool _updateCompilationNumberOnce;
-        private static void OnAssemblyCompilationStarted(string str)
-        {
-            if (_updateCompilationNumberOnce) return;
-            _updateCompilationNumberOnce = true;
-            Debug.Log("Compile");
+            // Hook the update
+            EditorApplication.update += Update;
         }
         
-        //
-        // internal const string ApplicationId = "696168436556103771";
-        // internal const string OptionalSteamId = "";
-        //
-        // private DiscordRpc.RichPresence _presence;
-        // private DiscordRpc.EventHandlers _handlers;
-        //
-        // private void Start()
+        /// <summary>
+        ///     Shutdown discord controller.
+        /// </summary>
+        public static void Shutdown(bool dontSaveAnything)
+        {
+            if (!IsInitialized) return;
+            IsInitialized = false;
+            
+            // Save timestamp.
+            SaveTimestamp(dontSaveAnything);
+            
+            // Disconnect update.
+            EditorApplication.update -= Update;
+            
+            // JEMLogger.Log("Discord: shutdown", "DISCORD");
+            DiscordRpc.Shutdown();
+        }
+        
+        // private static void ReadyCallback(ref DiscordRpc.DiscordUser connectedUser)
         // {
-        //     if (Application.isBatchMode) return; // ignore discord in batchmode!
-        //     // JEMLogger.Log("Discord: init", "DISCORD");
-        //     _handlers = new DiscordRpc.EventHandlers();
-        //     _handlers.readyCallback += ReadyCallback;
-        //     _handlers.disconnectedCallback += DisconnectedCallback;
-        //     _handlers.errorCallback += ErrorCallback;
-        //     _handlers.joinCallback += JoinCallback;
-        //     _handlers.spectateCallback += SpectateCallback;
-        //     _handlers.requestCallback += RequestCallback;
-        //     DiscordRpc.Initialize(ApplicationId, ref _handlers, true, OptionalSteamId);
+        //     Debug.Log($"Discord: connected to {connectedUser.username}#{connectedUser.discriminator}: {connectedUser.userId}");
         // }
         //
-        // private void OnDestroy()
+        // private static void DisconnectedCallback(int errorCode, string message)
         // {
-        //     if (EventTrigger.Entry.IsBachMode) return; // ignore discord in batchmode!
-        //     if (Instance == null)
-        //         return;
-        //
-        //     // JEMLogger.Log("Discord: shutdown", "DISCORD");
-        //     DiscordRpc.Shutdown();
+        //     Debug.Log($"Discord: disconnect {errorCode}: {message}");
         // }
         //
-        // private void ReadyCallback(ref DiscordRpc.DiscordUser connectedUser)
+        // private static void ErrorCallback(int errorCode, string message)
         // {
-        //     JEMLogger.Log($"Discord: connected to {connectedUser.username}#{connectedUser.discriminator}: {connectedUser.userId}", "DISCORD");
+        //     Debug.Log($"Discord: error {errorCode}: {message}");
         // }
-        //
-        // private void DisconnectedCallback(int errorCode, string message)
-        // {
-        //     JEMLogger.Log($"Discord: disconnect {errorCode}: {message}", "DISCORD");
-        // }
-        //
-        // private void ErrorCallback(int errorCode, string message)
-        // {
-        //     JEMLogger.Log($"Discord: error {errorCode}: {message}", "DISCORD");
-        // }
-        //
-        // private void JoinCallback(string secret)
-        // {
-        //     JEMLogger.Log($"Discord: join ({secret})", "DISCORD");
-        // }
-        //
-        // private void SpectateCallback(string secret)
-        // {
-        //     JEMLogger.Log($"Discord: spectate ({secret})", "DISCORD");
-        // }
-        //
-        // private void RequestCallback(ref DiscordRpc.DiscordUser request)
-        // {
-        //     JEMLogger.Log($"Discord: join request {request.username}#{request.discriminator}: {request.userId}", "DISCORD");
-        // }
-        //
-        // private void Update()
-        // {
-        //     if (EventTrigger.Entry.IsBachMode) return; // ignore discord in batchmode!
-        //     DiscordRpc.RunCallbacks();
-        // }
-        //
-        // internal static void SetPresenceToString(bool restartTimestamp, string strState)
-        // {
-        //     if (EventTrigger.Entry.IsBachMode) return; // ignore discord in batchmode!
-        //     if (restartTimestamp)
-        //         _lastTimestamp = GetTimestamp();
-        //
-        //     Instance._presence = new DiscordRpc.RichPresence
-        //     {
-        //         details = strState,
-        //         state = string.Empty,
-        //         largeImageKey = "image_large",
-        //
-        //         startTimestamp = _lastTimestamp
-        //     };
-        //
-        //     DiscordRpc.UpdatePresence(Instance._presence);
-        // }
-        //
-        // internal static void CollectAndSendInGamePresence(bool restartTimestamp)
-        // {
-        //     if (EventTrigger.Entry.IsBachMode) return; // ignore discord in batchmode!
-        //     try
-        //     {
-        //         if (restartTimestamp)
-        //             _lastTimestamp = GetTimestamp();
-        //
-        //         Instance._presence = new DiscordRpc.RichPresence
-        //         {
-        //             details = "Playing: " + NetworkShared.ReceivedServerMeta.GamemodeName,
-        //             state = GetFixedMapName(),
-        //             largeImageKey = "image_large",
-        //
-        //             partySize = PlayerEntity.Players.Count,
-        //             partyMax = NetworkShared.ReceivedServerMeta.ServerSize,
-        //
-        //             startTimestamp = _lastTimestamp
-        //         };
-        //
-        //         DiscordRpc.UpdatePresence(Instance._presence);
-        //     }
-        //     catch (Exception e)
-        //     {
-        //         throw new InvalidOperationException("An unexcepted error occurred while updating discord presence.", e);
-        //     }
-        // }
-        //
-        // private static string GetFixedMapName()
-        // {
-        //     var n = NetworkShared.ReceivedServerMeta.MapName;
-        //     if (n.StartsWith("m_"))
-        //         n = n.Remove(0, 2); // remove m_ from the name
-        //     return n;
-        // }
-        //
-        // private static long GetTimestamp()
-        // {
-        //     long ticks = DateTime.UtcNow.Ticks - DateTime.Parse("01/01/1970 00:00:00").Ticks;
-        //     ticks /= 10000000; // Convert windows ticks to seconds
-        //     return ticks;
-        // }
-        //
-        // private static long _lastTimestamp;
+
+        private static bool _wasWindowFocused;
+        private static void Update()
+        {
+            if (!IsInitialized) return;
+            
+            // Hide unity presence if not focused.
+            // TODO: Adjust timestamp after receiving focus again
+            if (_wasWindowFocused != UnityEditorInternal.InternalEditorUtility.isApplicationActive)
+            {
+                _wasWindowFocused = UnityEditorInternal.InternalEditorUtility.isApplicationActive;
+                if (_wasWindowFocused)
+                {
+                    JEMDiscordUnityPresence.RefreshPresence();
+                }
+                else
+                {
+                    DiscordRpc.ClearPresence();
+                }
+            }
+
+            // no need for callbacks?
+            // DiscordRpc.RunCallbacks();
+        }
+
+        /// <summary>
+        ///     Sets discord's rich presence the simplest way.
+        /// </summary>
+        public static void SetSimpleRPC(bool restartTimestamp, string stateStr, string detailsStr = "")
+        {
+            if (!IsInitialized) return;
+            if (restartTimestamp || _lastTimestamp == 0)
+                ResetTimestamp();
+        
+            _lastPresence = new DiscordRpc.RichPresence
+            {
+                state = stateStr,
+                details = detailsStr,
+                largeImageKey = GetImageName(JEMDiscordImageKey.UnityDefault),
+                largeImageText =  "",
+                
+                startTimestamp = _lastTimestamp
+            };
+        
+            DiscordRpc.UpdatePresence(_lastPresence);
+        }
+
+        /// <summary>
+        ///     Sets discord's rich presence using custom rpc data.
+        /// </summary>
+        public static void SetFullRPC(bool restartTimestamp, [NotNull] DiscordRpc.RichPresence richPresence)
+        {
+            if (richPresence == null) throw new ArgumentNullException(nameof(richPresence));
+            //Debug.Log("Will update presence to " + richPresence);
+            
+            if (!IsInitialized) return;
+            if (restartTimestamp || _lastTimestamp == 0)
+                ResetTimestamp();
+
+            _lastPresence = richPresence;
+            _lastPresence.startTimestamp = _lastTimestamp;
+            
+            DiscordRpc.UpdatePresence(_lastPresence);
+        }
+        
+        /// <summary>
+        ///     Returns string key of given image we can use in our rich presence.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"/>
+        public static string GetImageName(JEMDiscordImageKey key)
+        {
+            switch (key)
+            {
+                case JEMDiscordImageKey.UnityDefault:
+                    return "icon_unity";
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(key), key, null);
+            }
+        }
+        
+        public static void SetTimestamp(long newTimestamp)
+        {
+            _lastTimestamp = newTimestamp;
+        }
+        
+        public static void ResetTimestamp()
+        {
+            _lastTimestamp = GetTimestamp();   
+        }
+        
+        public static long GetTimestamp()
+        {
+            if (!_wasTimestampLoaded)
+            {
+                _wasTimestampLoaded = true;
+                if (EditorPrefs.HasKey("jem.discordRPC.timestamp"))
+                    return long.Parse(EditorPrefs.GetString("jem.discordRPC.timestamp"));
+            }
+            
+            var ticks = DateTime.UtcNow.Ticks - DateTime.Parse("01/01/1970 00:00:00").Ticks;
+            ticks /= 10000000; // Convert windows ticks to seconds
+            return ticks;
+        }
+
+        public static void SaveTimestamp(bool clear)
+        {
+            if (clear)
+            {
+                EditorPrefs.DeleteKey("jem.discordRPC.timestamp");
+            }
+            else
+            {
+                EditorPrefs.SetString("jem.discordRPC.timestamp", _lastTimestamp.ToString());
+            }
+        }
+        
+        private static long _lastTimestamp;
+        private static bool _wasTimestampLoaded;
+        
+        private static DiscordRpc.RichPresence _lastPresence;
+        private static DiscordRpc.EventHandlers _handlers;
+        
+        /// <summary>
+        ///     Defines whether the discord rpc controller has been initialized or not.
+        /// </summary>
+        public static bool IsInitialized { get; private set; }
     }
 }
