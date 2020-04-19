@@ -5,14 +5,13 @@
 //
 
 using System;
-using System.Reflection;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace JEM.Unity.DiscordRPC
+namespace JEM.Unity.DiscordRPC.Systems
 {
     [InitializeOnLoad]
     internal class JEMDiscordUnityHandler
@@ -61,9 +60,9 @@ namespace JEM.Unity.DiscordRPC
             };
             
             CompilationPipeline.assemblyCompilationStarted += OnAssemblyCompilationStarted;
-
-            JEMDiscordController.Init();
-            JEMDiscordUnityPresence.RefreshPresence();
+            
+            // Initialize.
+            JEMDiscordController.Init(false);
         }
  
         private static bool _updateCompilationNumberOnce;

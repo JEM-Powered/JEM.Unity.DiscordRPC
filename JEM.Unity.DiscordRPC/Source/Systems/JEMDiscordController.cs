@@ -5,27 +5,32 @@
 //
 
 using System;
+using System.Globalization;
 using JEM.Unity.DiscordRPC.Common;
 using JetBrains.Annotations;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
-namespace JEM.Unity.DiscordRPC
+namespace JEM.Unity.DiscordRPC.Systems
 {
     public enum JEMDiscordImageKey
     {
         UnityDefault
     }
     
+    /// <summary>
+    ///     Main discord controller. 
+    /// </summary>
     public static class JEMDiscordController
     {
         private const string ApplicationId = "696168436556103771";
         private const string OptionalSteamId = "";
-        
+
         /// <summary>
-        ///     Initialize discord controller.
+        ///     Initialize discord RPC controller.
         /// </summary>
-        public static void Init()
+        public static void Init(bool forced)
         {
             if (Application.isBatchMode)
             {
@@ -33,20 +38,45 @@ namespace JEM.Unity.DiscordRPC
                 return; // ignore discord in batchmode!
             }
 
+            Debug.Log($"JEMDiscordController.Initialize isInitialized:{IsInitialized}");
+
             if (IsInitialized) return;
             IsInitialized = true;
             
-            //Debug.Log("Discord: init");
-            
-            _handlers = new DiscordRpc.EventHandlers();
-            // _handlers.readyCallback += ReadyCallback;
-            // _handlers.disconnectedCallback += DisconnectedCallback;
-            // _handlers.errorCallback += ErrorCallback;
-
-            DiscordRpc.Initialize(ApplicationId, ref _handlers, true, OptionalSteamId);
-
+            // Load configuration.
+            JEMDiscordConfiguration.LoadConfiguration();
             // Hook the update
             EditorApplication.update += Update;
+            
+            // Load last initialization time.
+            if (EditorPrefs.HasKey("jem.discordRPC.lastInitialization"))
+                _lastInitializationTime = DateTime.Parse(EditorPrefs.GetString("jem.discordRPC.lastInitialization"),
+                    CultureInfo.InvariantCulture);
+            
+            // To prevent spamming with discord RPC init calls we will only initialize discord controller again if there is at least
+            //        one minute difference with previous init call.
+            if (CanInitialize())
+                InternalDiscordInitialize();
+        }
+
+        private static bool CanInitialize()
+        {
+            var diff = DateTime.Now - _lastInitializationTime;
+            return diff.Seconds >= JEMDiscordConfiguration.Resolve().RecompileTimeout;
+        }
+
+        internal static void InternalDiscordInitialize()
+        {
+            if (IsConnected)
+                return;
+            
+            _handlers = new DiscordRpc.EventHandlers();
+            
+            Debug.Log("Discord: init");
+            DiscordRpc.Initialize(ApplicationId, ref _handlers, true, OptionalSteamId);
+            IsConnected = true;
+            
+            JEMDiscordUnityPresence.RefreshPresence();
         }
         
         /// <summary>
@@ -54,56 +84,54 @@ namespace JEM.Unity.DiscordRPC
         /// </summary>
         public static void Shutdown(bool dontSaveAnything)
         {
+            Debug.Log($"JEMDiscordController.Shutdown isInitialized:{IsInitialized} dontSaveAnything:{dontSaveAnything}");
+            
             if (!IsInitialized) return;
             IsInitialized = false;
-            
-            // Save timestamp.
-            SaveTimestamp(dontSaveAnything);
             
             // Disconnect update.
             EditorApplication.update -= Update;
             
-            // JEMLogger.Log("Discord: shutdown", "DISCORD");
-            DiscordRpc.Shutdown();
+            // Save timestamp.
+            SaveTimestamp(dontSaveAnything);
+            if (IsConnected)
+            {
+                Debug.Log("Discord: shutdown");
+                DiscordRpc.Shutdown();
+            }
+
+            // Save last discord initialization time.
+            EditorPrefs.SetString("jem.discordRPC.lastInitialization", DateTime.Now.ToString(CultureInfo.InvariantCulture));
+            IsConnected = false;
         }
         
-        // private static void ReadyCallback(ref DiscordRpc.DiscordUser connectedUser)
-        // {
-        //     Debug.Log($"Discord: connected to {connectedUser.username}#{connectedUser.discriminator}: {connectedUser.userId}");
-        // }
-        //
-        // private static void DisconnectedCallback(int errorCode, string message)
-        // {
-        //     Debug.Log($"Discord: disconnect {errorCode}: {message}");
-        // }
-        //
-        // private static void ErrorCallback(int errorCode, string message)
-        // {
-        //     Debug.Log($"Discord: error {errorCode}: {message}");
-        // }
-
         private static bool _wasWindowFocused;
         private static void Update()
         {
             if (!IsInitialized) return;
-            
+            if (!IsConnected)
+            {
+                // While discord is not yet connected, we will try again after one min.                            
+                if (CanInitialize())
+                    InternalDiscordInitialize();
+                
+                return;
+            }
             // Hide unity presence if not focused.
             // TODO: Adjust timestamp after receiving focus again
-            if (_wasWindowFocused != UnityEditorInternal.InternalEditorUtility.isApplicationActive)
+            if (_wasWindowFocused == InternalEditorUtility.isApplicationActive) return;
+            _wasWindowFocused = InternalEditorUtility.isApplicationActive;
+            if (!JEMDiscordConfiguration.Resolve().ShowPresenceOnlyWhenActive)
+                return;
+            
+            if (_wasWindowFocused)
             {
-                _wasWindowFocused = UnityEditorInternal.InternalEditorUtility.isApplicationActive;
-                if (_wasWindowFocused)
-                {
-                    JEMDiscordUnityPresence.RefreshPresence();
-                }
-                else
-                {
-                    DiscordRpc.ClearPresence();
-                }
+                JEMDiscordUnityPresence.RefreshPresence();
             }
-
-            // no need for callbacks?
-            // DiscordRpc.RunCallbacks();
+            else
+            {
+                JEMDiscordUnityPresence.RefreshPresence(true);
+            }
         }
 
         /// <summary>
@@ -114,18 +142,14 @@ namespace JEM.Unity.DiscordRPC
             if (!IsInitialized) return;
             if (restartTimestamp || _lastTimestamp == 0)
                 ResetTimestamp();
-        
-            _lastPresence = new DiscordRpc.RichPresence
+            
+            SetFullRPC(restartTimestamp, new DiscordRpc.RichPresence()
             {
                 state = stateStr,
                 details = detailsStr,
                 largeImageKey = GetImageName(JEMDiscordImageKey.UnityDefault),
-                largeImageText =  "",
-                
-                startTimestamp = _lastTimestamp
-            };
-        
-            DiscordRpc.UpdatePresence(_lastPresence);
+                largeImageText = "",
+            });
         }
 
         /// <summary>
@@ -140,10 +164,21 @@ namespace JEM.Unity.DiscordRPC
             if (restartTimestamp || _lastTimestamp == 0)
                 ResetTimestamp();
 
-            _lastPresence = richPresence;
-            _lastPresence.startTimestamp = _lastTimestamp;
-            
-            DiscordRpc.UpdatePresence(_lastPresence);
+            if (!IsConnected)
+                return;
+
+            HasPresence = true;
+            DiscordRpc.UpdatePresence(richPresence);
+        }
+
+        public static void ClearRPC()
+        {
+            if (!IsInitialized) return;
+            if (!IsConnected)
+                return;
+
+            HasPresence = false;
+            DiscordRpc.ClearPresence();
         }
         
         /// <summary>
@@ -196,16 +231,26 @@ namespace JEM.Unity.DiscordRPC
                 EditorPrefs.SetString("jem.discordRPC.timestamp", _lastTimestamp.ToString());
             }
         }
-        
+
+        internal static DateTime _lastInitializationTime;
         private static long _lastTimestamp;
         private static bool _wasTimestampLoaded;
         
-        private static DiscordRpc.RichPresence _lastPresence;
         private static DiscordRpc.EventHandlers _handlers;
+        
+        /// <summary>
+        ///     True when discord received content to draw.
+        /// </summary>
+        public static bool HasPresence { get; private set; }
         
         /// <summary>
         ///     Defines whether the discord rpc controller has been initialized or not.
         /// </summary>
         public static bool IsInitialized { get; private set; }
+        
+        /// <summary>
+        ///     Defines whether we have connection with discord rpc or not.
+        /// </summary>
+        public static bool IsConnected { get; private set; }
     }
 }

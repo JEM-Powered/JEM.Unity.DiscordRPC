@@ -6,6 +6,7 @@
 
 using System;
 using JEM.Unity.DiscordRPC.Common;
+using JEM.Unity.DiscordRPC.Systems;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -16,7 +17,7 @@ namespace JEM.Unity.DiscordRPC
     /// </summary>
     public static class JEMDiscordUnityPresence
     {
-        private enum State
+        internal enum State
         {
             DrawScene,
             DrawPrefab
@@ -42,8 +43,21 @@ namespace JEM.Unity.DiscordRPC
             RefreshPresence();
         }
 
-        public static void RefreshPresence()
+        /// <summary>
+        ///     Makes full presence refresh to resolve new state.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"/>
+        public static void RefreshPresence(bool clear = false)
         {
+            // Check if we should clear RPC.
+            var shouldClear = clear || !JEMDiscordConfiguration.Resolve().Enable;
+            if (shouldClear)
+            {
+                JEMDiscordController.ClearRPC();
+                return;
+            }
+            
+            // Construct new presence.
             var scene = ResolveSceneName();
             var presence = new DiscordRpc.RichPresence();
             presence.details = $"Developing {Application.productName}";
@@ -62,7 +76,7 @@ namespace JEM.Unity.DiscordRPC
                         str = "N/A";
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(_drawState), _drawState, null);
                 }
             }
             
@@ -71,6 +85,7 @@ namespace JEM.Unity.DiscordRPC
             presence.largeImageKey = JEMDiscordController.GetImageName(JEMDiscordImageKey.UnityDefault);
             presence.largeImageText = Application.unityVersion;
                 
+            // Apply presence.
             JEMDiscordController.SetFullRPC(false, presence);
         }
 
@@ -88,8 +103,8 @@ namespace JEM.Unity.DiscordRPC
             return _sceneName;
         }
 
-        private static State _drawState;
-        private static string _sceneName;
-        private static bool _inPlayMode;
+        internal static State _drawState;
+        internal static string _sceneName;
+        internal static bool _inPlayMode;
     }
 }
