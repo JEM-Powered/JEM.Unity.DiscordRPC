@@ -1,8 +1,6 @@
-# JEM.Unity.DiscordRPC
-
 ![JEM](https://i.imgur.com/mJMUGuL.png)
 
-# Simple C# „Just Enough Methods” Library source-code repository
+# JEM.Unity.DiscordRPC
 
 ### This is a small plugin that adds Discord RPC support to unity engine.
 **Note:** This is an extremely early version of the plugin so there may be some stability issues and besides that, everything the RPC draws is hardcoded.
