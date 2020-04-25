@@ -61,8 +61,12 @@ namespace JEM.Unity.DiscordRPC.Systems
 
         private static bool CanInitialize()
         {
+            var config = JEMDiscordConfiguration.Resolve();
+            if (!config.Enable)
+                return false;
+            
             var diff = DateTime.Now - _lastInitializationTime;
-            return diff.Seconds >= JEMDiscordConfiguration.Resolve().RecompileTimeout;
+            return diff.Seconds >= config.RecompileTimeout;
         }
 
         internal static void InternalDiscordInitialize()
