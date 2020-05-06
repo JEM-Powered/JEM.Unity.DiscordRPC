@@ -38,7 +38,7 @@ namespace JEM.Unity.DiscordRPC.Systems
                 return; // ignore discord in batchmode!
             }
 
-            Debug.Log($"JEMDiscordController.Initialize isInitialized:{IsInitialized}");
+            //Debug.Log($"JEMDiscordController.Initialize isInitialized:{IsInitialized}");
 
             if (IsInitialized) return;
             IsInitialized = true;
@@ -88,7 +88,7 @@ namespace JEM.Unity.DiscordRPC.Systems
         /// </summary>
         public static void Shutdown(bool dontSaveAnything)
         {
-            Debug.Log($"JEMDiscordController.Shutdown isInitialized:{IsInitialized} dontSaveAnything:{dontSaveAnything}");
+            //Debug.Log($"JEMDiscordController.Shutdown isInitialized:{IsInitialized} dontSaveAnything:{dontSaveAnything}");
             
             if (!IsInitialized) return;
             IsInitialized = false;
