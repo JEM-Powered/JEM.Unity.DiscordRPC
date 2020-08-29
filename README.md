@@ -1,5 +1,12 @@
 ![JEM](https://i.imgur.com/mJMUGuL.png)
 
+# [JEM Powered](https://github.com/JEM-Powered)
+
+JEM: *A simple C# „Just Enough Methods” Library.*
+
+A powerful family of modular C# libraries designed for fast, convenient and efficient implementation of applications based on the Unity Engine. 
+JEM Powered aims to reduce the most frequently repeated code along with the implementation of bases for basic systems found in most applications and games.
+
 # JEM.Unity.DiscordRPC
 
 ### This is a small plugin that adds Discord RPC support to unity engine.
