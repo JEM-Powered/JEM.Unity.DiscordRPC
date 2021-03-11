@@ -31,8 +31,4 @@ JEM.Unity.DiscordRPC is currently developed by using `Unity 2019.3.0f5`
 # Dependencies
 - N/A
 
-# Helpdesk
-Have any questions or problems with JEM plugins?
-Feel free to join our discord server and ask us anything: https://discord.gg/A2sDJaN
-
  *JEM (c) 2020 Adam Majcherek*
